@@ -204,3 +204,38 @@ export function downloadJSON(data: Record<string, any>, filename: string) {
 export function formatDate(date: Date | string): string {
   return format(date instanceof Date ? date : new Date(date), "PPpp");
 }
+
+export async function fetchActivityLog(userId: string): Promise<ActivityLogEntry[]> {
+  try {
+    const logQuery = query(
+      collection(db, "activityLogs"),
+      where("userId", "==", userId)
+    );
+    const snapshot = await getDocs(logQuery);
+    return snapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+      timestamp: d.data().timestamp?.toDate() || new Date(),
+    })) as ActivityLogEntry[];
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, "activityLogs");
+    return [];
+  }
+}
+
+export async function revokeUserSessions(userId: string): Promise<void> {
+  try {
+    const sessionsQuery = query(
+      collection(db, "sessions"),
+      where("userId", "==", userId)
+    );
+    const snapshot = await getDocs(sessionsQuery);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((d) => {
+      batch.update(d.ref, { active: false, revokedAt: new Date() });
+    });
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, "sessions");
+  }
+}

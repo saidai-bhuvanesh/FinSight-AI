@@ -21,13 +21,14 @@ import {
   Eye,
   Activity,
 } from "lucide-react";
-import SessionManager from "@/src/components/privacy/SessionManager";
+import SessionManager from "./SessionManager";
 import {
   exportUserData,
   deleteUserData,
   fetchActivityLog,
   revokeUserSessions,
   PrivacySettings,
+  DEFAULT_PRIVACY_SETTINGS,
   ActivityLogEntry,
 } from "@/src/lib/privacyUtils";
 import { toast } from "sonner";
@@ -35,7 +36,7 @@ import { toast } from "sonner";
 export function PrivacyDashboard({ user }: { user: any }) {
   const [loading, setLoading] = useState(true);
   const [privacySettings, setPrivacySettings] =
-    useState<PrivacySettings | null>(null);
+    useState<PrivacySettings>(DEFAULT_PRIVACY_SETTINGS);
   const [activityLog, setActivityLog] = useState<ActivityLogEntry[]>([]);
   const [exporting, setExporting] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -51,13 +52,8 @@ export function PrivacyDashboard({ user }: { user: any }) {
       const logs = await fetchActivityLog(user.uid);
       setActivityLog(logs);
       setPrivacySettings({
-        userId: user.uid,
-        dataRetentionEnabled: true,
-        analyticsEnabled: true,
-        sharingEnabled: false,
-        exportRequestedAt: "",
-        deletionRequestedAt: "",
-        updatedAt: new Date().toISOString(),
+        ...DEFAULT_PRIVACY_SETTINGS,
+        lastUpdated: new Date().toISOString(),
       });
     } catch (error) {
       console.error("Failed to load privacy data:", error);
@@ -292,7 +288,7 @@ export function PrivacyDashboard({ user }: { user: any }) {
                         </div>
                       </div>
                       <span className="text-[10px] text-slate-500 font-mono">
-                        {log.timestamp}
+                        {log.timestamp instanceof Date ? log.timestamp.toLocaleString() : String(log.timestamp)}
                       </span>
                     </div>
                   ))}

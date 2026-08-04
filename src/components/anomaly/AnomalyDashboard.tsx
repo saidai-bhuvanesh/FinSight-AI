@@ -365,12 +365,17 @@ async function runDetection(userId: string) {
       catBaseline.mean,
       catBaseline.stdDev,
     );
+    const severity: "low" | "medium" | "high" | "critical" = confidence > 0.8 ? "critical" : confidence > 0.6 ? "high" : confidence > 0.4 ? "medium" : "low";
     newAnomalies.push({
       userId,
       type: "large_transaction",
       category: tx.category,
       amount: tx.amount,
+      averageAmount: catBaseline.mean,
+      deviation: tx.amount - catBaseline.mean,
+      date: tx.date,
       description: `Transaction of $${tx.amount.toLocaleString()} in ${tx.category} exceeds the category average by more than 2 standard deviations.`,
+      severity,
       confidence,
       transactionId: tx.id,
       dismissed: false,
@@ -392,20 +397,23 @@ async function runDetection(userId: string) {
       spike.baseline.monthlyTotals.length;
     const pctOver =
       avgMonthly > 0 ? Math.round((lastMonthTotal / avgMonthly - 1) * 100) : 0;
+    const lastTx = spike.transactions[spike.transactions.length - 1];
+    const severity: "low" | "medium" | "high" | "critical" = confidence > 0.8 ? "critical" : confidence > 0.6 ? "high" : confidence > 0.4 ? "medium" : "low";
 
     newAnomalies.push({
       userId,
       type: "category_spike",
       category: spike.category,
       amount: spike.amount,
+      averageAmount: avgMonthly,
+      deviation: lastMonthTotal - avgMonthly,
+      date: lastTx?.date || new Date(),
       description: `${spike.category} spending is ${pctOver}% above the 3-month average.`,
+      severity,
       confidence,
-      transactionId:
-        spike.transactions[spike.transactions.length - 1]?.id || "",
+      transactionId: lastTx?.id || "",
       dismissed: false,
-      createdAt:
-        spike.transactions[spike.transactions.length - 1]?.date ||
-        new Date().toISOString(),
+      createdAt: lastTx?.date || new Date().toISOString(),
     });
   });
 

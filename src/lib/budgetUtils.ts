@@ -296,12 +296,19 @@ export { formatCurrency } from './utils';
 export interface CategoryBudgetSuggestion {
   category: string;
   suggestedLimit: number;
+  suggestedAmount: number;
+  modifiedAmount: number;
+  averageSpending: number;
+  previousMonthSpending: number;
   confidenceScore: number;
   reasoning: string;
+  status?: 'pending' | 'accepted' | 'rejected' | 'modified';
 }
 
 export interface BudgetComparison {
   category: string;
+  previous: number;
+  difference: number;
   previousMonthSpend: number;
   currentBudget: number;
   percentChange: number;
@@ -310,6 +317,7 @@ export interface BudgetComparison {
 export interface Transaction {
   id: string;
   userId: string;
+  type: 'income' | 'expense';
   amount: number;
   category: string;
   date: string;
@@ -324,15 +332,42 @@ export async function fetchPreviousMonthTransactions(userId: string): Promise<Tr
   return [];
 }
 
-export async function generateBudgetSuggestions(transactions: Transaction[]): Promise<CategoryBudgetSuggestion[]> {
-  return [];
+export async function generateBudgetSuggestions(
+  transactions: Transaction[],
+  previousSpending: Record<string, number>
+): Promise<CategoryBudgetSuggestion[]> {
+  // Group transactions by category
+  const categoryTotals: Record<string, number> = {};
+  transactions.forEach((t) => {
+    if (t.type === 'expense') {
+      categoryTotals[t.category] = (categoryTotals[t.category] || 0) + t.amount;
+    }
+  });
+
+  // Generate suggestions based on spending patterns
+  const suggestions: CategoryBudgetSuggestion[] = Object.entries(categoryTotals).map(([category, amount]) => ({
+    category,
+    suggestedLimit: amount * 1.1, // 10% buffer
+    suggestedAmount: amount * 1.1,
+    modifiedAmount: amount * 1.1,
+    averageSpending: amount,
+    previousMonthSpending: previousSpending[category] || amount,
+    confidenceScore: 0.8,
+    reasoning: `Based on your spending in ${category}`,
+  }));
+
+  return suggestions;
 }
 
-export function calculateTotalBudget(categories: BudgetCategory[]): number {
-  return categories.reduce((sum, cat) => sum + cat.monthlyLimit, 0);
+export function calculateTotalBudget(categories: (BudgetCategory | CategoryBudgetSuggestion)[]): number {
+  return categories.reduce((sum, cat) => {
+    if ('suggestedAmount' in cat) return sum + cat.suggestedAmount;
+    if ('monthlyLimit' in cat) return sum + cat.monthlyLimit;
+    return sum;
+  }, 0);
 }
 
-export function calculateConfidenceScore(data: any): number {
+export function calculateConfidenceScore(data: any, baseline: any): number {
   return 80;
 }
 
@@ -342,6 +377,18 @@ export async function fetchBudgetFromFirestore(userId: string): Promise<any> {
 
 export async function saveBudgetToFirestore(userId: string, data: any): Promise<void> {}
 
-export async function generateBudgetComparison(userId: string): Promise<BudgetComparison[]> {
-  return [];
+export function generateBudgetComparison(
+  finalSuggestions: CategoryBudgetSuggestion[],
+  previousSpending: Record<string, number>
+): BudgetComparison[] {
+  return finalSuggestions.map((s) => ({
+    category: s.category,
+    previous: s.previousMonthSpending,
+    difference: s.suggestedAmount - s.previousMonthSpending,
+    previousMonthSpend: s.previousMonthSpending,
+    currentBudget: s.suggestedAmount,
+    percentChange: s.previousMonthSpending > 0 
+      ? ((s.suggestedAmount - s.previousMonthSpending) / s.previousMonthSpending) * 100 
+      : 0,
+  }));
 }

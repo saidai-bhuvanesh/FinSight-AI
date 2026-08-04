@@ -97,7 +97,7 @@ export function BudgetDashboard({ user }: { user: any }) {
         return acc;
       }, {});
 
-      const generatedSuggestions = generateBudgetSuggestions(
+      const generatedSuggestions = await generateBudgetSuggestions(
         transactions,
         previousSpending,
       );
@@ -114,7 +114,6 @@ export function BudgetDashboard({ user }: { user: any }) {
 
       const savedBudget = await fetchBudgetFromFirestore(
         user.uid,
-        currentMonth,
       );
 
       let finalSuggestions = generatedSuggestions;
@@ -172,7 +171,7 @@ export function BudgetDashboard({ user }: { user: any }) {
     };
 
     try {
-      await saveBudgetToFirestore(budgetData);
+      await saveBudgetToFirestore(user.uid, budgetData);
       setTotalBudget(budgetData.totalBudget);
       setSaved(true);
     } catch (error) {

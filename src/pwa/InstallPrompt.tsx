@@ -22,7 +22,10 @@ export function InstallPrompt() {
   useEffect(() => {
     if (isNotificationSupported()) {
       setNotificationSupported(true);
-      setNotificationPermission(getNotificationPermission());
+      const permission = getNotificationPermission();
+      if (permission !== 'unsupported') {
+        setNotificationPermission(permission);
+      }
     }
   }, []);
 

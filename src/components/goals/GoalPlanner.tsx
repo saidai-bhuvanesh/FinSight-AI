@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { GoalCard } from './GoalCard';
 import { auth, db, handleFirestoreError, OperationType } from '@/src/lib/firebase';
 import {
   doc,
