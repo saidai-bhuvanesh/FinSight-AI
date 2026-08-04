@@ -58,9 +58,9 @@ export async function fetchUserTransactions(
   months: number = 6,
 ): Promise<Transaction[]> {
   if (!userId) return [];
+  const now = new Date();
+  const startDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
   try {
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth() - months, 1);
     const transactionsRef = collection(db, "transactions");
     const q = query(
       transactionsRef,

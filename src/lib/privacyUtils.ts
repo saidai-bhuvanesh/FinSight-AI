@@ -109,32 +109,83 @@ export async function exportUserData(
 }
 
 export async function deleteUserData(userId: string): Promise<void> {
-  const batch = writeBatch(db);
-  for (const colName of [
-    "transactions",
+  // Collections that support hard deletes via security rules
+  const hardDeleteCollections = [
     "subscriptions",
-    "anomalies",
-    "reports",
-    "trend_analysis",
     "goals",
-  ]) {
+    "trend_analysis",
+    "bills",
+    "budget_categories",
+    "budget_rollovers",
+    "challenges",
+    "tax_estimates",
+    "emergency_funds",
+  ];
+
+  // Collections requiring soft deletes (marked as deleted)
+  const softDeleteCollections = [
+    "transactions",
+    "reports",
+    "anomalies",
+  ];
+
+  // Perform hard deletes for collections with delete rules
+  for (const colName of hardDeleteCollections) {
     try {
-      (
-        await getDocs(
-          query(collection(db, colName), where("userId", "==", userId)),
-        )
-      ).docs.forEach((d) => batch.delete(d.ref));
+      const batch = writeBatch(db);
+      const snapshot = await getDocs(
+        query(collection(db, colName), where("userId", "==", userId)),
+      );
+      snapshot.docs.forEach((d) => batch.delete(d.ref));
+      await batch.commit();
     } catch (error) {
-      console.error('deleteUserData: failed to delete', colName, error);
+      console.error(`deleteUserData: failed to hard delete from ${colName}`, error);
     }
   }
+
+  // Perform soft deletes for collections without delete rules
+  const now = new Date().toISOString();
+  for (const colName of softDeleteCollections) {
+    try {
+      const batch = writeBatch(db);
+      const snapshot = await getDocs(
+        query(collection(db, colName), where("userId", "==", userId)),
+      );
+      snapshot.docs.forEach((d) => 
+        batch.update(d.ref, { deleted: true, deletedAt: now }),
+      );
+      await batch.commit();
+    } catch (error) {
+      console.error(`deleteUserData: failed to soft delete from ${colName}`, error);
+    }
+  }
+
+  // Delete user subdocuments
   try {
-    batch.delete(doc(db, "users", userId));
-    batch.delete(doc(db, "privacy_settings", userId));
-    batch.delete(doc(db, "currencies", userId));
-    await batch.commit();
+    const userDoc = doc(db, "users", userId);
+    await setDoc(userDoc, { deleted: true, deletedAt: now }, { merge: true });
   } catch (error) {
-    handleFirestoreError(error, OperationType.DELETE, "userData");
+    console.error("deleteUserData: failed to mark user as deleted", error);
+  }
+
+  try {
+    await setDoc(
+      doc(db, "privacy_settings", userId),
+      { deleted: true, deletedAt: now },
+      { merge: true },
+    );
+  } catch (error) {
+    console.error("deleteUserData: failed to delete privacy_settings", error);
+  }
+
+  try {
+    await setDoc(
+      doc(db, "currencies", userId),
+      { deleted: true, deletedAt: now },
+      { merge: true },
+    );
+  } catch (error) {
+    console.error("deleteUserData: failed to delete currencies", error);
   }
 }
 
@@ -152,4 +203,39 @@ export function downloadJSON(data: Record<string, any>, filename: string) {
 
 export function formatDate(date: Date | string): string {
   return format(date instanceof Date ? date : new Date(date), "PPpp");
+}
+
+export async function fetchActivityLog(userId: string): Promise<ActivityLogEntry[]> {
+  try {
+    const logQuery = query(
+      collection(db, "activityLogs"),
+      where("userId", "==", userId)
+    );
+    const snapshot = await getDocs(logQuery);
+    return snapshot.docs.map((d) => ({
+      id: d.id,
+      ...d.data(),
+      timestamp: d.data().timestamp?.toDate() || new Date(),
+    })) as ActivityLogEntry[];
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, "activityLogs");
+    return [];
+  }
+}
+
+export async function revokeUserSessions(userId: string): Promise<void> {
+  try {
+    const sessionsQuery = query(
+      collection(db, "sessions"),
+      where("userId", "==", userId)
+    );
+    const snapshot = await getDocs(sessionsQuery);
+    const batch = writeBatch(db);
+    snapshot.docs.forEach((d) => {
+      batch.update(d.ref, { active: false, revokedAt: new Date() });
+    });
+    await batch.commit();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, "sessions");
+  }
 }

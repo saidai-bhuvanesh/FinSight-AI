@@ -328,7 +328,7 @@ export function generateBudgetAdvice(context: FinancialContext): ChatResponse {
 
 export function analyzeSpendingPatterns(context: FinancialContext): ChatResponse {
   const { monthlySpending, spendingByMonth, totalSpending } = context;
-  const months = Object.keys(monthlySpending).sort((a, b) => a - b);
+  const months = Object.keys(monthlySpending).sort((a, b) => Number(a) - Number(b));
   let response = '';
 
   if (months.length < 2) {

@@ -5,6 +5,7 @@ import {
   doc,
   setDoc,
   getDoc,
+  getDocs,
   onSnapshot,
   addDoc,
   updateDoc,
@@ -265,7 +266,7 @@ export function CurrencyManager({ user }: CurrencyManagerProps) {
     : { totalBase: 0, byCurrency: {} };
 
   const historyDates = settings?.conversionHistory
-    ? Object.keys(settings.conversionHistory).sort((a, b) => a - b).reverse().slice(0, 10)
+    ? Object.keys(settings.conversionHistory).sort((a, b) => Number(b) - Number(a)).slice(0, 10)
     : [];
 
   const categories = ['General', 'Food', 'Transport', 'Utilities', 'Entertainment', 'Healthcare', 'Travel', 'Income'];
