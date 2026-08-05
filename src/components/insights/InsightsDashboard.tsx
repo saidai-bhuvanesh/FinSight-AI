@@ -64,39 +64,41 @@ export function InsightsDashboard({ user }: InsightsDashboardProps) {
   // Derive loading state
   const loading = !user || isLoading;
 
-  useEffect(() => {
-    if (!user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBundle(null);
-      return;
-    }
+    useEffect(() => {
+      let cancelled = false;
+      let loadingState = true;
 
-    let cancelled = false;
-    let loadingState = true;
-
-    // Set initial state - needed for derived loading state
-     
-    setIsLoading(true);
-
-    fetchTransactions(user.uid)
-      .then(transactions => {
-        if (cancelled || !loadingState) return;
-        loadingState = false;
-        setBundle(buildInsights(transactions, user.uid));
-      })
-      .catch(error => {
-        if (cancelled || !loadingState) return;
-        loadingState = false;
-        handleFirestoreError(error, OperationType.LIST, "transactions");
-        setBundle(buildInsights([], user.uid));
-      })
-      .finally(() => {
-        if (!cancelled && loadingState) {
-          loadingState = false;
-           
-          setIsLoading(false);
+      async function fetchInsights() {
+        if (!user) {
+          setBundle(null);
+          return;
         }
-      });
+
+        setIsLoading(true);
+
+        try {
+          const transactions = await fetchTransactions(user.uid);
+          if (cancelled || !loadingState) return;
+          loadingState = false;
+          setBundle(buildInsights(transactions, user.uid));
+        } catch (error) {
+          if (cancelled || !loadingState) return;
+          loadingState = false;
+          handleFirestoreError(error, OperationType.LIST, "transactions");
+          setBundle(buildInsights([], user.uid));
+        } finally {
+          if (!cancelled && loadingState) {
+            loadingState = false;
+            setIsLoading(false);
+          }
+        }
+      }
+
+      fetchInsights();
+      return () => {
+        cancelled = true;
+      };
+    }, [user]);
 
     return () => {
       cancelled = true;
