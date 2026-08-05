@@ -42,16 +42,10 @@ export interface FirestoreErrorInfo {
   code?: string;
   operationType: OperationType;
   path: string | null;
+  // Sanitized authInfo - only non-PII data for privacy compliance
   authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
+    hasUser?: boolean;
     isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
   };
 }
 
@@ -133,22 +127,18 @@ export function handleFirestoreError(
         ? error.message
         : String(error),
     code: firebaseError?.code,
+    // Sanitize authInfo - only log non-PII data for privacy
     authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo:
-        auth.currentUser?.providerData?.map((provider) => ({
-          providerId: provider.providerId,
-          email: provider.email,
-        })) || [],
+      hasUser: !!auth.currentUser,
+      isAnonymous: auth.currentUser?.isAnonymous ?? null,
     },
     operationType,
     path,
   };
-  console.error("Firestore Error: ", JSON.stringify(errInfo));
+  // Only log in development mode to avoid PII exposure
+  if (import.meta.env.DEV) {
+    console.error("Firestore Error: ", JSON.stringify(errInfo));
+  }
   return errInfo;
 }
 
