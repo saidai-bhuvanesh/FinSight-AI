@@ -34,24 +34,31 @@ export function PrivacyDashboard({ user }: { user: any }) {
   const loading = !user || isLoading;
 
   // Define loadPrivacyData before useEffect to avoid hoisting issues
-  async function loadPrivacyData() {
-    if (!user) return;
-     
-    setIsLoading(true);
-    try {
-      const settings = await getPrivacySettings(user.uid);
-      setPrivacySettings(settings);
-    } catch (error) {
-      console.error("Failed to load privacy data:", error);
-    } finally {
-       
-      setIsLoading(false);
-    }
-  }
-
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    let cancelled = false;
+
+    async function loadPrivacyData() {
+      if (!user) return;
+
+      setIsLoading(true);
+      try {
+        const settings = await getPrivacySettings(user.uid);
+        if (!cancelled) {
+          setPrivacySettings(settings);
+        }
+      } catch (error) {
+        console.error("Failed to load privacy data:", error);
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
     loadPrivacyData();
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
 
   function handleSettingUpdate(updates: Partial<PrivacySettings>) {

@@ -78,42 +78,42 @@ export function BillReminders({ user }: BillRemindersProps) {
   // Derive loading state
   const loading = !user || isLoading;
 
-  useEffect(() => {
-    if (!user) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setBills([]);
-      return;
-    }
-    let cancelled = false;
-    let loadingState = true;
+    useEffect(() => {
+      let cancelled = false;
+      let loadingState = true;
 
-     
-    setIsLoading(true);
-
-    fetchUserBills(user.uid)
-      .then((fetched) => {
-        if (!cancelled && loadingState) {
-          loadingState = false;
-          setBills(fetched);
-        }
-      })
-      .catch(() => {
-        if (!cancelled && loadingState) {
-          loadingState = false;
+      async function fetchBills() {
+        if (!user) {
           setBills([]);
+          return;
         }
-      })
-      .finally(() => {
-        if (!cancelled && loadingState) {
-          loadingState = false;
-           
-          setIsLoading(false);
+
+        setIsLoading(true);
+
+        try {
+          const fetched = await fetchUserBills(user.uid);
+          if (!cancelled && loadingState) {
+            loadingState = false;
+            setBills(fetched);
+          }
+        } catch {
+          if (!cancelled && loadingState) {
+            loadingState = false;
+            setBills([]);
+          }
+        } finally {
+          if (!cancelled && loadingState) {
+            loadingState = false;
+            setIsLoading(false);
+          }
         }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+      }
+
+      fetchBills();
+      return () => {
+        cancelled = true;
+      };
+    }, [user]);
 
   const overdueBills = useMemo(() => getOverdueBills(bills, today), [bills, today]);
   const upcomingBills = useMemo(() => getUpcomingBills(bills, today), [bills, today]);
