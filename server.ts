@@ -71,12 +71,15 @@ if (firestoreDatabaseId !== "(default)") {
 }
 // Explicit CORS allowlist. In production, only APP_URL (the deployed
 // frontend origin) may call this API with credentials. Local Vite dev
-// ports are allowed so `npm run dev` keeps working out of the box.
+// ports are allowed only in development so `npm run dev` keeps working.
+const isProduction = process.env.NODE_ENV === "production";
 const allowedOrigins = new Set(
   [
     process.env.APP_URL,
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    // Only include localhost in non-production environments
+    ...(isProduction
+      ? []
+      : ["http://localhost:5173", "http://127.0.0.1:5173"]),
   ].filter(
     (origin): origin is string => Boolean(origin) && origin !== "MY_APP_URL",
   ),
