@@ -238,9 +238,12 @@ export function calculateBalanceProjection(
   // after the current one, so every projected month advances the balance and
   // the displayed balance is consistent with the displayed projected net.
   let currentBalance = startingBalance;
+  const currentMonth = getMonthKey(new Date());
 
   return forecast.map((f) => {
-    currentBalance += f.projectedNet;
+    // Keep the current month at the user's real starting balance; only advance
+    // the running balance for future months.
+    if (f.month !== currentMonth) currentBalance += f.projectedNet;
     return {
       month: f.month,
       projectedBalance: Math.round(currentBalance * 100) / 100,
